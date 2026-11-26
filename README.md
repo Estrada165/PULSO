@@ -35,12 +35,19 @@ Navegador (Vite + JavaScript)  ──►  Supabase (PostgreSQL + Auth + RLS)  �
 
 ### 1. Base de datos
 
-En el SQL Editor de Supabase ejecuta, en este orden:
+En el SQL Editor de Supabase:
 
-1. `supabase/esquema.sql` (esquema completo; ya ejecutado)
-2. `supabase/migracion_v2.sql`
+1. `supabase/esquema.sql`: crea tablas, vistas, políticas y la ruta R-01 con su flota.
+2. Crea tu cuenta en **Authentication → Users → Add user** (marca *Auto Confirm User*).
+3. `supabase/datos_iniciales.sql`: aplica la migración, te asigna el rol de administrador, crea las cuentas del equipo y carga el historial, el modelo vigente y las programaciones de la semana. Se puede volver a ejecutar cuando se quiera reiniciar la operación.
 
-Crea tu usuario en **Authentication → Users → Add user** y luego ejecuta `supabase/primer_administrador.sql` con tu correo.
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Administrador | tu cuenta | la que elegiste |
+| Jefe de operaciones | `jefe.operaciones@pulso.pe` | `Pulso2026!` |
+| Despachador | `despacho.norte@pulso.pe` | `Pulso2026!` |
+
+Para regenerar ese archivo con otro historial: `node scripts/generar-semilla.js`.
 
 ### 2. Variables de entorno
 

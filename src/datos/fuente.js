@@ -73,8 +73,7 @@ export async function cargarDatos() {
   if (!ruta) return (ACT.D = null);
   const modelo = ok(await sb.from('modelos').select('id, entrenado_en, mae, rmse, mape, registros, resumen').eq('ruta_id', ruta.id).not('resumen', 'is', null).order('entrenado_en', { ascending: false }).limit(1).maybeSingle());
   ACT.modelo = modelo;
-  if (!modelo?.resumen) return (ACT.D = null);
-  const D = modelo.resumen;
+  const D = modelo?.resumen || structuredClone((await import('../data/datos.json')).default);
   D.ruta = { codigo: ruta.codigo, nombre: ruta.nombre, km_ida: Number(ruta.km_ida), paraderos: ruta.paraderos };
   const p = ok(await sb.from('parametros_vigentes').select('*').eq('ruta_id', ruta.id).maybeSingle());
   if (p) {
