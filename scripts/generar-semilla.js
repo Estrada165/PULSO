@@ -56,9 +56,6 @@ const usuarios = [
 const migracion = readFileSync(new URL('supabase/migracion_v2.sql', raiz), 'utf8').trim();
 const sql = `${migracion}
 
-drop table if exists public.semilla_dias;
-drop table if exists public.semilla_salidas;
-
 update public.usuarios
 set rol = 'administrador', nombre = 'Carlos Estrada', activo = true
 where correo ilike 'carlosestradamanchay%';
@@ -93,27 +90,26 @@ where b.placa is null and b.ruta_id = (select id from public.rutas where codigo 
 insert into public.parametros (ruta_id, creado_por, vigente_desde)
 select r.id, '${usuarios[0][0]}', now() from public.rutas r where r.codigo = 'R-01';
 
-create table public.semilla_dias (fecha date, valores int[]);
-insert into public.semilla_dias values
-${registros};
-
 insert into public.cargas (ruta_id, usuario_id, archivo, filas_nuevas, filas_actualizadas, desde, hasta, creado_en)
-select r.id, '${usuarios[0][0]}', 'abordajes_R-01_historico.csv',
-  (select count(*) from public.semilla_dias, unnest(valores) v where v is not null), 0,
-  (select min(fecha) from public.semilla_dias)::timestamp at time zone 'America/Lima' + interval '5 hours',
-  (select max(fecha) from public.semilla_dias)::timestamp at time zone 'America/Lima' + interval '22 hours 45 minutes',
-  now() - interval '2 days 3 hours'
+select r.id, '${usuarios[0][0]}', 'abordajes_R-01_historico.csv', 0, 0, null, null, now() - interval '2 days 3 hours'
 from public.rutas r where r.codigo = 'R-01';
 
 insert into public.registros_abordaje (ruta_id, fecha_hora, pasajeros, fuente, carga_id)
 select r.id,
-  (d.fecha + make_interval(mins => ${D.operacion.hora_inicio * 60} + ((k - 1) * ${D.operacion.min_intervalo})::int))::timestamp at time zone 'America/Lima',
-  v, 'importacion', c.id
-from public.semilla_dias d
+  (d.fecha + make_interval(mins => (${D.operacion.hora_inicio * 60} + (u.k - 1) * ${D.operacion.min_intervalo})::int))::timestamp at time zone 'America/Lima',
+  u.v, 'importacion', c.id
+from (values
+${registros}
+) as d(fecha, valores)
 cross join lateral unnest(d.valores) with ordinality as u(v, k)
 join public.rutas r on r.codigo = 'R-01'
 join lateral (select id from public.cargas where ruta_id = r.id order by creado_en desc limit 1) c on true
-where v is not null;
+where u.v is not null;
+
+update public.cargas c
+set filas_nuevas = x.n, desde = x.desde, hasta = x.hasta
+from (select carga_id, count(*) n, min(fecha_hora) desde, max(fecha_hora) hasta from public.registros_abordaje group by carga_id) x
+where x.carga_id = c.id;
 
 insert into public.modelos (ruta_id, algoritmo, entrenado_en, datos_desde, datos_hasta, registros, mae, rmse, mape, mae_empirico, segundos_entrenamiento, resumen)
 select r.id, 'prophet', now() - interval '2 days 2 hours 40 minutes',
@@ -123,10 +119,6 @@ select r.id, 'prophet', now() - interval '2 days 2 hours 40 minutes',
   ${D.metricas.prophet.MAE}, ${D.metricas.prophet.RMSE}, ${D.metricas.prophet.MAPE}, ${D.metricas.empirico.MAE}, 41.8,
   $pulso$${resumen}$pulso$::jsonb
 from public.rutas r where r.codigo = 'R-01';
-
-create table public.semilla_salidas (dia int, t int[], bus text[], anden int[], carga int[], regla text[], real int[]);
-insert into public.semilla_salidas values
-${dias.map((d) => `(${d.i}, ${arr(d.t)}, ${arr(d.bus, txt)}, ${arr(d.anden)}, ${arr(d.carga)}, ${arr(d.regla, txt)}, ${arr(d.real)})`).join(',\n')};
 
 do $$
 declare
@@ -139,7 +131,9 @@ declare
   f date;
   prog bigint;
 begin
-  for s in select * from public.semilla_salidas order by dia loop
+  for s in select * from (values
+${dias.map((d) => `(${d.i}, ${arr(d.t)}, ${arr(d.bus, txt)}, ${arr(d.anden)}, ${arr(d.carga)}, ${arr(d.regla, txt)}, ${arr(d.real)})`).join(',\n')}
+  ) as v(dia, t, bus, anden, carga, regla, real) order by dia loop
     f := lunes + s.dia;
     continue when f > hoy;
     insert into public.programaciones (ruta_id, fecha, modelo_id, parametros_id, estado, creado_en, aprobado_por, aprobado_en)
@@ -159,9 +153,6 @@ begin
     cross join lateral (select (f::timestamp + make_interval(mins => x.t::int)) at time zone 'America/Lima' as hp) h;
   end loop;
 end $$;
-
-drop table public.semilla_dias;
-drop table public.semilla_salidas;
 
 select u.nombre, u.correo, u.rol from public.usuarios u order by u.rol;
 `;
