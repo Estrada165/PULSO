@@ -56,7 +56,8 @@ const usuarios = [
 const migracion = readFileSync(new URL('supabase/migracion_v2.sql', raiz), 'utf8').trim();
 const sql = `${migracion}
 
-begin;
+drop table if exists public.semilla_dias;
+drop table if exists public.semilla_salidas;
 
 update public.usuarios
 set rol = 'administrador', nombre = 'Carlos Estrada', activo = true
@@ -92,15 +93,15 @@ where b.placa is null and b.ruta_id = (select id from public.rutas where codigo 
 insert into public.parametros (ruta_id, creado_por, vigente_desde)
 select r.id, '${usuarios[0][0]}', now() from public.rutas r where r.codigo = 'R-01';
 
-create temporary table semilla_dias (fecha date, valores int[]) on commit drop;
-insert into semilla_dias values
+create table public.semilla_dias (fecha date, valores int[]);
+insert into public.semilla_dias values
 ${registros};
 
 insert into public.cargas (ruta_id, usuario_id, archivo, filas_nuevas, filas_actualizadas, desde, hasta, creado_en)
 select r.id, '${usuarios[0][0]}', 'abordajes_R-01_historico.csv',
-  (select count(*) from semilla_dias, unnest(valores) v where v is not null), 0,
-  (select min(fecha) from semilla_dias)::timestamp at time zone 'America/Lima' + interval '5 hours',
-  (select max(fecha) from semilla_dias)::timestamp at time zone 'America/Lima' + interval '22 hours 45 minutes',
+  (select count(*) from public.semilla_dias, unnest(valores) v where v is not null), 0,
+  (select min(fecha) from public.semilla_dias)::timestamp at time zone 'America/Lima' + interval '5 hours',
+  (select max(fecha) from public.semilla_dias)::timestamp at time zone 'America/Lima' + interval '22 hours 45 minutes',
   now() - interval '2 days 3 hours'
 from public.rutas r where r.codigo = 'R-01';
 
@@ -108,7 +109,7 @@ insert into public.registros_abordaje (ruta_id, fecha_hora, pasajeros, fuente, c
 select r.id,
   (d.fecha + make_interval(mins => ${D.operacion.hora_inicio * 60} + ((k - 1) * ${D.operacion.min_intervalo})::int))::timestamp at time zone 'America/Lima',
   v, 'importacion', c.id
-from semilla_dias d
+from public.semilla_dias d
 cross join lateral unnest(d.valores) with ordinality as u(v, k)
 join public.rutas r on r.codigo = 'R-01'
 join lateral (select id from public.cargas where ruta_id = r.id order by creado_en desc limit 1) c on true
@@ -123,8 +124,8 @@ select r.id, 'prophet', now() - interval '2 days 2 hours 40 minutes',
   $pulso$${resumen}$pulso$::jsonb
 from public.rutas r where r.codigo = 'R-01';
 
-create temporary table semilla_salidas (dia int, t int[], bus text[], anden int[], carga int[], regla text[], real int[]) on commit drop;
-insert into semilla_salidas values
+create table public.semilla_salidas (dia int, t int[], bus text[], anden int[], carga int[], regla text[], real int[]);
+insert into public.semilla_salidas values
 ${dias.map((d) => `(${d.i}, ${arr(d.t)}, ${arr(d.bus, txt)}, ${arr(d.anden)}, ${arr(d.carga)}, ${arr(d.regla, txt)}, ${arr(d.real)})`).join(',\n')};
 
 do $$
@@ -138,7 +139,7 @@ declare
   f date;
   prog bigint;
 begin
-  for s in select * from semilla_salidas order by dia loop
+  for s in select * from public.semilla_salidas order by dia loop
     f := lunes + s.dia;
     continue when f > hoy;
     insert into public.programaciones (ruta_id, fecha, modelo_id, parametros_id, estado, creado_en, aprobado_por, aprobado_en)
@@ -159,7 +160,8 @@ begin
   end loop;
 end $$;
 
-commit;
+drop table public.semilla_dias;
+drop table public.semilla_salidas;
 
 select u.nombre, u.correo, u.rol from public.usuarios u order by u.rol;
 `;
