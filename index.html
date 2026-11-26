@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="oscuro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PULSO · Programación de salidas — ETUSA S.A.</title>
+  <meta name="description" content="Pronóstico de pasajeros y programación de salidas de buses para la operación diaria de ETUSA S.A.">
+  <meta name="theme-color" content="#0A0B0D" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ECECEF" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PULSO">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/iconos/icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/iconos/icono-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet">
+  <script>
+    try { var a = JSON.parse(localStorage.getItem('pulso:ajustes') || '{}'); if (a.tema) document.documentElement.dataset.tema = a.tema; if (a.menuContraido) document.documentElement.dataset.menu = 'contraido'; } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <noscript>PULSO necesita JavaScript para funcionar.</noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
